@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# uv / virtual env
+.venv/
+dist/
+*.egg-info/
+
+# Environment & secrets
+.env
+
+# SQLite databases (runtime state)
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
