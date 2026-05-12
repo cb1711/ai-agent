@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-
 import dateutil.parser
 from langchain_core.tools import tool
 
@@ -21,7 +20,7 @@ def schedule_reminder_tool(message: str, when: str) -> str:
         if run_at <= now:
             return "Error: scheduled time must be in the future."
 
-        job_id = schedule_reminder(message=message, run_at=run_at)
+        job_id = schedule_reminder(message=message, run_at=run_at, dest="cli")
         return f"Reminder scheduled for {run_at.isoformat()} (job id: {job_id})"
     except Exception as e:
         return f"Failed to schedule reminder: {e}"

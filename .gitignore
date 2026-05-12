@@ -19,6 +19,13 @@ dist/
 *.db-shm
 *.db-wal
 
+# Logs
+*.log
+logs/
+agent.log
+analysis_results.json
+analysis_results.jsonl
+
 # OS
 .DS_Store
 Thumbs.db

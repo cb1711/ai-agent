@@ -1,40 +1,25 @@
-import signal
-import sys
+import asyncio
+import logging
+
+from rich.console import Console
+from rich.panel import Panel
 
 # load_dotenv must run before any local imports that read os.getenv
 from dotenv import load_dotenv
 load_dotenv()
 
-from rich.console import Console
-from rich.live import Live
-from rich.panel import Panel
-from rich.spinner import Spinner
-
+from audit.store import register_session
 from config import settings
-from scheduler.jobs import reminder_queue, start_scheduler, stop_scheduler
-from agent import build_agent, invoke_agent
+from event_bus import EventBus
+from agent_loop import agent_consumer, scheduler_monitor, confirmation_handler
+from scheduler.jobs import start_scheduler, stop_scheduler
+from interfaces.cli_interface import cli_producer, cli_consumer
 
 console = Console()
 
 
-def _handle_sigint(sig, frame):
-    console.print("\n[dim]Interrupted. Type 'exit' to quit.[/dim]")
-
-
-signal.signal(signal.SIGINT, _handle_sigint)
-
-
-def drain_reminders() -> None:
-    while not reminder_queue.empty():
-        msg = reminder_queue.get_nowait()
-        console.print(Panel(
-            f"[bold yellow]{msg}[/bold yellow]",
-            title="[yellow] REMINDER[/yellow]",
-            border_style="yellow",
-        ))
-
-
-def run_cli() -> None:
+async def main() -> None:
+    """Main async entry point: start all components and run until shutdown."""
     console.print(Panel.fit(
         f"[bold green]AI Agent[/bold green]\n"
         f"LLM: [cyan]{settings.llm_provider}[/cyan]  |  "
@@ -43,43 +28,70 @@ def run_cli() -> None:
         border_style="green",
     ))
 
+    # Initialize
+    register_session(settings.audit_db_path, settings.session_id, "cli", settings.llm_provider)
+    event_bus = EventBus()
     start_scheduler()
 
+    response_ready = asyncio.Event()
+    pause_for_confirmation = asyncio.Event()
+    confirmation_response_queue: asyncio.Queue = asyncio.Queue()
+
+    # Start all async tasks
+    tasks = [
+        asyncio.create_task(agent_consumer(event_bus)),
+        asyncio.create_task(scheduler_monitor(event_bus)),
+        asyncio.create_task(confirmation_handler(event_bus, confirmation_response_queue)),
+        asyncio.create_task(cli_producer(event_bus, response_ready, pause_for_confirmation, confirmation_response_queue)),
+        asyncio.create_task(cli_consumer(event_bus, response_ready, pause_for_confirmation)),
+    ]
+
     try:
-        agent = build_agent()
-    except Exception as e:
-        console.print(f"[red]Failed to build agent:[/red] {e}")
+        # Return as soon as any task finishes (cli_producer exits on "exit"/"quit")
+        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for t in done:
+            exc = t.exception()
+            if exc:
+                raise exc
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        console.print("\n[dim]Interrupted.[/dim]")
+    finally:
         stop_scheduler()
-        sys.exit(1)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
-    while True:
-        drain_reminders()
 
-        try:
-            user_input = console.input("\n[bold blue]You:[/bold blue] ").strip()
-        except EOFError:
-            break
+def _setup_logging() -> None:
+    level = getattr(logging, settings.log_level.upper(), logging.INFO)
 
-        if not user_input:
-            continue
-        if user_input.lower() in ("exit", "quit", "bye"):
-            console.print("[dim]Goodbye.[/dim]")
-            break
+    file_handler = logging.FileHandler(settings.log_path, encoding="utf-8")
+    file_handler.setLevel(level)
+    file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
 
-        with Live(
-            Spinner("dots", text="[dim]Thinking...[/dim]"),
-            console=console,
-            refresh_per_second=10,
-            transient=True,
-        ):
-            try:
-                answer = invoke_agent(agent, user_input)
-            except Exception as e:
-                answer = f"[red]Agent error:[/red] {e}"
+    # Only WARNING+ to stderr so INFO doesn't clutter the Rich terminal output.
+    stderr_handler = logging.StreamHandler()
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s: %(message)s"))
 
-        console.print(f"\n[bold green]Agent:[/bold green] {answer}")
+    root = logging.getLogger()
+    root.setLevel(level)
+    root.addHandler(file_handler)
+    root.addHandler(stderr_handler)
 
-    stop_scheduler()
+    logging.info("Logging started — session=%s log=%s", settings.session_id, settings.log_path)
+
+
+def run_cli() -> None:
+    """Entry point for CLI. Runs the async event loop."""
+    _setup_logging()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        console.print("\n[dim]Shutdown.[/dim]")
 
 
 if __name__ == "__main__":
