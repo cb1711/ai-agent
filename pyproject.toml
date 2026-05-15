@@ -30,6 +30,9 @@ dependencies = [
     "ollama>=0.4.0",
     "llama-cpp-python>=0.3.0",
     "pyautogui>=0.9.54",
+    "pyobjc-framework-applicationservices>=12.1",
+    "pytesseract>=0.3.13",
+    "langchain-google-genai>=4.2.2",
 ]
 
 [project.scripts]

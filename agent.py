@@ -42,6 +42,12 @@ def rebuild_agent() -> None:
 
 def _build_llm():
     provider = settings.llm_provider.lower()
+    if provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(
+            model=settings.gemini_model,
+            google_api_key=settings.google_api_key,
+        )
     if provider == "ollama":
         from langchain_ollama import ChatOllama
         return ChatOllama(
@@ -105,4 +111,11 @@ def invoke_agent(agent, user_message: str) -> str:
         {"messages": [{"role": "user", "content": user_message}]},
         config=config,
     )
-    return response["messages"][-1].content
+    content = response["messages"][-1].content
+    if isinstance(content, list):
+        return "".join(
+            block["text"] if isinstance(block, dict) else str(block)
+            for block in content
+            if not isinstance(block, dict) or block.get("type") == "text"
+        )
+    return content

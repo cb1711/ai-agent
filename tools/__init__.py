@@ -15,12 +15,13 @@ from tools.self_improve_tool import analyze_agent_performance, get_current_syste
 from tools.tool_creator_tool import create_new_tool
 from tools.prompt_editor_tool import read_system_prompt, update_system_prompt
 from tools.self_reflect_schedule_tool import configure_self_reflection
+from config import settings
 
 # === BEGIN AGENT-CREATED TOOLS ===
 
 
 def get_all_tools():
-    return [
+    tools = [
         python_repl_tool,
         web_search_tool,
         read_file_tool,
@@ -47,3 +48,10 @@ def get_all_tools():
         update_system_prompt,
         configure_self_reflection,
     ]
+    if settings.enable_ax_tool:
+        from tools.ax_tool import read_ax_content, get_ax_selected_text
+        tools.extend([read_ax_content, get_ax_selected_text])
+    if settings.enable_ocr_tool:
+        from tools.ocr_tool import ocr_read_screen
+        tools.append(ocr_read_screen)
+    return tools

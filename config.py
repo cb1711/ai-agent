@@ -8,6 +8,8 @@ class Settings:
     llm_provider: str = os.getenv("LLM_PROVIDER", "claude")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     claude_model: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
+    google_api_key: str = os.getenv("GOOGLE_API_KEY", "")
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.2")
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
@@ -59,6 +61,11 @@ class Settings:
     analysis_log_path: str          = os.getenv("ANALYSIS_LOG_PATH", "analysis_results.jsonl")
 
     self_reflect_interval_hours: int = int(os.getenv("SELF_REFLECT_INTERVAL_HOURS", "24"))
+
+    # AX tool (macOS Accessibility API — requires Accessibility permission)
+    enable_ax_tool: bool = os.getenv("ENABLE_AX_TOOL", "false").lower() == "true"
+    # OCR tool (requires tesseract: brew install tesseract)
+    enable_ocr_tool: bool = os.getenv("ENABLE_OCR_TOOL", "false").lower() == "true"
 
     memory_db_path: str = os.getenv("MEMORY_DB_PATH", "agent_memory.db")
     scheduler_db_path: str = os.getenv("SCHEDULER_DB_PATH", "agent_scheduler.db")

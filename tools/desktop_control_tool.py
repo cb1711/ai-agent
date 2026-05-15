@@ -20,6 +20,22 @@ _VALID_TYPES = {
     "type", "key", "hotkey", "set_clipboard", "focus_window",
 }
 
+# Normalize common aliases to pyautogui's accepted key names
+_KEY_ALIASES: dict[str, str] = {
+    "cmd": "command",
+    "super": "command",
+    "win": "command",
+    "control": "ctrl",
+    "opt": "option",
+    "ret": "return",
+    "esc": "escape",
+    "del": "delete",
+}
+
+
+def _normalize_key(key: str) -> str:
+    return _KEY_ALIASES.get(key.lower(), key.lower())
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +83,7 @@ def _validate_action(action: dict) -> None:
         if field not in action:
             raise ValueError(f"Action {t!r} missing required field {field!r}")
     if t == "hotkey":
-        check_gui_hotkey(action["keys"])
+        check_gui_hotkey([_normalize_key(k) for k in action["keys"]])
 
 
 def _run_action(action: dict) -> None:
@@ -91,8 +107,9 @@ def _run_action(action: dict) -> None:
     elif t == "key":
         pyautogui.press(action["key"])
     elif t == "hotkey":
-        check_gui_hotkey(action["keys"])  # double-check at execution time
-        pyautogui.hotkey(*action["keys"])
+        normalized = [_normalize_key(k) for k in action["keys"]]
+        check_gui_hotkey(normalized)  # double-check at execution time
+        pyautogui.hotkey(*normalized)
     elif t == "set_clipboard":
         pyperclip.copy(action["text"])
     elif t == "focus_window":
@@ -128,7 +145,7 @@ def list_windows() -> str:
 # ── Action tool ───────────────────────────────────────────────────────────────
 
 @tool
-def execute_gui_sequence(actions: list) -> str:
+def execute_gui_sequence(actions: list[dict]) -> str:
     """Execute a sequence of GUI actions (mouse, keyboard, clipboard, window focus)
     after presenting the full plan to the user for approval.
 
@@ -169,7 +186,7 @@ def execute_gui_sequence(actions: list) -> str:
         details = "⚠ WARNING: This sequence contains destructive actions (delete/backspace).\n\n" + details
 
     try:
-        request_confirmation(f"Execute GUI sequence ({len(actions)} action(s))", details)
+        request_confirmation("Execute GUI sequence", details)
     except ConfirmationDeniedError as e:
         return f"[Cancelled] {e}"
 

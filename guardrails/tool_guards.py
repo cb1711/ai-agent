@@ -89,16 +89,16 @@ def check_file_path(path: str, mode: Literal["read", "write"]) -> None:
 # ── GUI / desktop control guards ─────────────────────────────────────────────
 
 _BLOCKED_HOTKEYS: list[tuple[frozenset, str]] = [
-    (frozenset({"cmd", "q"}),             "force-quit-app"),
-    (frozenset({"ctrl", "alt", "delete"}), "system-interrupt"),
-    (frozenset({"cmd", "option", "esc"}), "force-quit-dialog"),
+    (frozenset({"command", "q"}),             "force-quit-app"),
+    (frozenset({"ctrl", "alt", "delete"}),    "system-interrupt"),
+    (frozenset({"command", "option", "escape"}), "force-quit-dialog"),
 ]
 
 _DESTRUCTIVE_KEYS: frozenset[str] = frozenset({"delete", "backspace", "clear"})
 _DESTRUCTIVE_HOTKEY_SUBSETS: list[frozenset] = [
-    frozenset({"cmd", "delete"}),    # move to trash
-    frozenset({"cmd", "backspace"}), # delete line / move to trash
-    frozenset({"shift", "delete"}),  # permanent delete in some apps
+    frozenset({"command", "delete"}),    # move to trash
+    frozenset({"command", "backspace"}), # delete line / move to trash
+    frozenset({"shift", "delete"}),      # permanent delete in some apps
 ]
 
 
